@@ -3,11 +3,17 @@ export default {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)$': '<rootDir>/src/$1'
   },
   transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest',
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      jsx: 'react-jsx'
+    }]
   },
-  testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
+  testMatch: [
+    '**/__tests__/**/*.(ts|tsx)',
+    '**/*.(test|spec).(ts|tsx)'
+  ],
+  extensionsToTreatAsEsm: ['.ts', '.tsx']
 };
 

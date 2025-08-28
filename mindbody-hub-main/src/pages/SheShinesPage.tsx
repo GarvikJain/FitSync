@@ -109,19 +109,18 @@ const SheShinesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="text-center py-8 bg-wellness-primary/10">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <Flower2 className="h-8 w-8 text-wellness-primary" />
-          <h1 className="text-3xl font-bold text-wellness-primary">SheShines ✨</h1>
+    <div className="container mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Flower2 className="h-8 w-8 text-wellness-primary" />
+            <h1 className="text-3xl font-bold text-wellness-primary">SheShines ✨</h1>
+          </div>
+          <p className="text-muted-foreground italic">
+            For every mood, moment, and miracle in you.
+          </p>
         </div>
-        <p className="text-muted-foreground italic">
-          For every mood, moment, and miracle in you.
-        </p>
-      </div>
-
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Purpose Section */}
         <Card className="mb-6">
           <CardHeader>

@@ -24,12 +24,33 @@ app.use(limiter);
 
 app.use(express.json());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'MindBody Hub Backend is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Initialize Google OAuth2 client
-const oauth2Client = new google.auth.OAuth2(
-  config.google.clientId,
-  config.google.clientSecret,
-  config.google.redirectUri
-);
+let oauth2Client;
+try {
+  oauth2Client = new google.auth.OAuth2(
+    config.google.clientId,
+    config.google.clientSecret,
+    config.google.redirectUri
+  );
+} catch (error) {
+  console.error('Failed to initialize OAuth2 client:', error.message);
+  // Create a dummy client for testing
+  oauth2Client = {
+    generateAuthUrl: () => 'https://accounts.google.com/o/oauth2/auth?client_id=test&redirect_uri=test',
+    getToken: () => Promise.resolve({ tokens: { access_token: 'test' } }),
+    setCredentials: () => {},
+    refreshAccessToken: () => Promise.resolve({ credentials: { access_token: 'test' } })
+  };
+}
 
 // In-memory token storage (use Redis in production)
 const userTokens = new Map();
@@ -264,9 +285,15 @@ app.get('/health', (req, res) => {
 });
 
 const PORT = config.server.port;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Google OAuth URL: http://localhost:${PORT}/auth/google`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔗 Google OAuth URL: http://localhost:${PORT}/auth/google`);
+}).on('error', (error) => {
+  console.error('❌ Server failed to start:', error.message);
+  if (error.code === 'EADDRINUSE') {
+    console.error('Port 3001 is already in use. Please stop other services using this port.');
+  }
 });
 
 

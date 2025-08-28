@@ -1,17 +1,31 @@
-import { Calendar, Clock, MapPin, Badge } from "lucide-react";
+import { Calendar, Clock, MapPin, Badge, User, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useAuthContext } from "@/contexts/AuthContext";
 import profileImage from "@/assets/profile-avatar.jpg";
 
 const UserProfile = () => {
-  const user = {
+  const { user: authUser, isAuthenticated, loading, signInWithGoogle } = useAuthContext();
+
+  // Fallback user data for demo purposes
+  const demoUser = {
     name: "Sarah Johnson",
     id: "EMP-2024-1234",
     position: "Senior Marketing Manager",
     department: "Marketing & Communications",
     email: "sarah.johnson@company.com"
   };
+
+  // Use authenticated user data if available, otherwise use demo data
+  const user = isAuthenticated && authUser ? {
+    name: authUser.displayName || "User",
+    id: authUser.uid || "USER-" + Math.random().toString(36).substr(2, 9),
+    position: "Wellness Hub Member",
+    department: "Health & Wellness",
+    email: authUser.email || "user@wellnesshub.com"
+  } : demoUser;
 
   const upcomingMeetings = [
     { time: "9:00 AM", title: "Team Standup", location: "Conference Room A" },
@@ -20,6 +34,46 @@ const UserProfile = () => {
     { time: "4:30 PM", title: "Project Review", location: "Conference Room B" }
   ];
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card className="wellness-card">
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-wellness-primary"></div>
+            <span className="ml-2 text-muted-foreground">Loading profile...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show sign-in prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-6">
+        <Card className="wellness-card">
+          <CardHeader className="text-center pb-4">
+            <div className="relative mx-auto">
+              <Avatar className="w-24 h-24 mx-auto border-4 border-wellness-primary/20">
+                <AvatarFallback className="text-xl font-semibold bg-wellness-primary/10 text-wellness-primary">
+                  <User className="w-8 h-8" />
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <CardTitle className="text-xl font-bold text-foreground">Guest User</CardTitle>
+            <p className="text-sm text-muted-foreground">Sign in to personalize your profile</p>
+          </CardHeader>
+          <CardContent className="text-center">
+            <Button onClick={signInWithGoogle} className="bg-wellness-primary hover:bg-wellness-primary/90">
+              Sign In with Google
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* User Profile Card */}
@@ -27,7 +81,7 @@ const UserProfile = () => {
         <CardHeader className="text-center pb-4">
           <div className="relative mx-auto">
             <Avatar className="w-24 h-24 mx-auto border-4 border-wellness-primary/20">
-              <AvatarImage src={profileImage} alt={user.name} />
+              <AvatarImage src={authUser?.photoURL || profileImage} alt={user.name} />
               <AvatarFallback className="text-xl font-semibold bg-wellness-primary/10 text-wellness-primary">
                 {user.name.split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
@@ -43,6 +97,11 @@ const UserProfile = () => {
               <Badge className="w-4 h-4 text-wellness-primary" />
               <span className="text-muted-foreground">ID:</span>
               <span className="font-medium">{user.id}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-wellness-primary" />
+              <span className="text-muted-foreground">Email:</span>
+              <span className="font-medium">{user.email}</span>
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-wellness-primary" />

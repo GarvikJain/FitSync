@@ -5,7 +5,7 @@ dotenv.config();
 export const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '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',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your_client_secret_here',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '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',
     redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback',
     scopes: [
       'https://www.googleapis.com/auth/fitness.activity.read',
@@ -17,9 +17,9 @@ export const config = {
     ]
   },
   server: {
-    port: process.env.PORT || 3001,
+    port: process.env.PORT || 3002,
     nodeEnv: process.env.NODE_ENV || 'development',
-    jwtSecret: process.env.JWT_SECRET || 'your_jwt_secret_here',
+    jwtSecret: process.env.JWT_SECRET || 'mindbody-hub-secure-jwt-secret-2024',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173'
   }
 };

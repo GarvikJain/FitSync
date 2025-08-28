@@ -65,8 +65,17 @@ const GoogleFitWidget = ({ className }: GoogleFitWidgetProps) => {
   const handleGoogleAuth = async () => {
     try {
       setError(null);
+      setIsLoading(true);
+      
+      console.log('Attempting to connect to Google Fit...');
       const response = await fetch(`${API_BASE_URL}/auth/google`);
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('Auth URL received:', data.authUrl);
       
       // Open Google OAuth popup
       const popup = window.open(
@@ -75,21 +84,31 @@ const GoogleFitWidget = ({ className }: GoogleFitWidgetProps) => {
         'width=500,height=600,scrollbars=yes,resizable=yes'
       );
 
+      if (!popup) {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+
       // Listen for the callback
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
           clearInterval(checkClosed);
           const token = localStorage.getItem('googleFitToken');
           if (token) {
+            console.log('Authentication successful, token stored');
             setIsAuthenticated(true);
             fetchHealthData();
+          } else {
+            console.log('Popup closed but no token found');
+            setError('Authentication was cancelled or failed. Please try again.');
           }
         }
       }, 1000);
 
     } catch (error) {
       console.error('Auth error:', error);
-      setError('Failed to authenticate with Google Fit');
+      setError(`Failed to authenticate with Google Fit: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -228,9 +247,27 @@ const GoogleFitWidget = ({ className }: GoogleFitWidgetProps) => {
             <p className="text-muted-foreground mb-4">
               Connect your Google Fit account to see your daily health metrics including steps, calories, heart rate, and sleep data.
             </p>
-            <Button onClick={handleGoogleAuth} className="w-full">
-              <Activity className="h-4 w-4 mr-2" />
-              Connect Google Fit
+            {error && (
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+            <Button 
+              onClick={handleGoogleAuth} 
+              className="w-full" 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Activity className="h-4 w-4 mr-2" />
+                  Connect Google Fit
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
