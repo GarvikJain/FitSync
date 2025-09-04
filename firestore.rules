@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isValidUser(userId) {
+      return isAuthenticated() && isOwner(userId);
+    }
+    
+    function isTeamMember(teamId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/teams/$(teamId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+    }
+    
+    function isTeamAdmin(teamId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/teams/$(teamId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.admins;
+    }
+    
+    function isValidActivity(activity) {
+      return activity.keys().hasAll(['uid', 'type', 'value', 'timestamp']) &&
+             activity.uid is string &&
+             activity.type in ['steps', 'calories', 'workout', 'challenge', 'wellness'] &&
+             activity.value is number &&
+             activity.value >= 0 &&
+             activity.timestamp is timestamp;
+    }
+    
+    function isValidUserProfile(profile) {
+      return profile.keys().hasAll(['uid', 'displayName', 'email', 'totalSteps', 'totalCalories', 'totalWorkouts', 'challengesCompleted', 'currentStreak', 'longestStreak', 'wellnessScore', 'joinDate', 'lastActive', 'preferences']) &&
+             profile.uid is string &&
+             profile.displayName is string &&
+             profile.email is string &&
+             profile.totalSteps is number &&
+             profile.totalCalories is number &&
+             profile.totalWorkouts is number &&
+             profile.challengesCompleted is number &&
+             profile.currentStreak is number &&
+             profile.longestStreak is number &&
+             profile.wellnessScore is number &&
+             profile.joinDate is timestamp &&
+             profile.lastActive is timestamp &&
+             profile.preferences is map &&
+             profile.preferences.keys().hasAll(['notifications', 'privacy', 'units']) &&
+             profile.preferences.notifications is bool &&
+             profile.preferences.privacy in ['public', 'private', 'team'] &&
+             profile.preferences.units in ['metric', 'imperial'];
+    }
+    
+    function isValidChallenge(challenge) {
+      return challenge.keys().hasAll(['title', 'description', 'type', 'target', 'duration', 'startDate', 'endDate', 'participants', 'rewards', 'isActive', 'createdBy', 'createdAt']) &&
+             challenge.title is string &&
+             challenge.description is string &&
+             challenge.type in ['steps', 'calories', 'workout', 'streak', 'custom'] &&
+             challenge.target is number &&
+             challenge.target > 0 &&
+             challenge.duration is number &&
+             challenge.duration > 0 &&
+             challenge.startDate is timestamp &&
+             challenge.endDate is timestamp &&
+             challenge.participants is list &&
+             challenge.rewards is map &&
+             challenge.rewards.coins is number &&
+             challenge.rewards.coins >= 0 &&
+             challenge.isActive is bool &&
+             challenge.createdBy is string &&
+             challenge.createdAt is timestamp;
+    }
+    
+    function isValidWellnessMetrics(metrics) {
+      return metrics.keys().hasAll(['uid', 'date', 'steps', 'calories', 'activeMinutes', 'timestamp']) &&
+             metrics.uid is string &&
+             metrics.date is string &&
+             metrics.steps is number &&
+             metrics.steps >= 0 &&
+             metrics.calories is number &&
+             metrics.calories >= 0 &&
+             metrics.activeMinutes is number &&
+             metrics.activeMinutes >= 0 &&
+             metrics.timestamp is timestamp;
+    }
+    
+    function isValidNotification(notification) {
+      return notification.keys().hasAll(['uid', 'type', 'title', 'message', 'isRead', 'createdAt']) &&
+             notification.uid is string &&
+             notification.type in ['achievement', 'challenge', 'reminder', 'social', 'system'] &&
+             notification.title is string &&
+             notification.message is string &&
+             notification.isRead is bool &&
+             notification.createdAt is timestamp;
+    }
+    
+    function isValidTeamMessage(message) {
+      return message.keys().hasAll(['uid', 'displayName', 'message', 'timestamp', 'teamId', 'messageType']) &&
+             message.uid is string &&
+             message.displayName is string &&
+             message.message is string &&
+             message.message.size() <= 1000 &&
+             message.timestamp is timestamp &&
+             message.teamId is string &&
+             message.messageType in ['text', 'image', 'file'];
+    }
+
+    // Users collection - Users can read all profiles, but only modify their own
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isValidUser(userId) && isValidUserProfile(resource.data);
+      allow update: if isValidUser(userId);
+      allow delete: if isValidUser(userId);
+    }
+
+    // Activities collection - Users can only access their own activities
+    match /activities/{activityId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isValidActivity(resource.data) && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Challenges collection - All authenticated users can read, only creators can modify
+    match /challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidChallenge(resource.data) && isOwner(resource.data.createdBy);
+      allow update: if isAuthenticated() && isOwner(resource.data.createdBy);
+      allow delete: if isAuthenticated() && isOwner(resource.data.createdBy);
+    }
+
+    // Wellness metrics collection - Users can only access their own metrics
+    match /wellnessMetrics/{metricId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isValidWellnessMetrics(resource.data) && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Notifications collection - Users can only access their own notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isValidNotification(resource.data) && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Teams collection - Team members can read, admins can modify
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(resource.data.createdBy);
+      allow update: if isAuthenticated() && (isOwner(resource.data.createdBy) || isTeamAdmin(teamId));
+      allow delete: if isAuthenticated() && isOwner(resource.data.createdBy);
+      
+      // Team messages - only team members can access
+      match /messages/{messageId} {
+        allow read: if isTeamMember(teamId);
+        allow create: if isTeamMember(teamId) && isValidTeamMessage(resource.data) && isOwner(resource.data.uid);
+        allow update: if isTeamMember(teamId) && isOwner(resource.data.uid);
+        allow delete: if isTeamMember(teamId) && (isOwner(resource.data.uid) || isTeamAdmin(teamId));
+      }
+    }
+
+    // Daily aggregates - Read-only for all authenticated users
+    match /dailyAggregates/{aggregateId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Leaderboards - Read-only for all authenticated users
+    match /leaderboards/{leaderboardId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Team leaderboards - Read-only for all authenticated users
+    match /teamLeaderboards/{leaderboardId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Rewards collection - All authenticated users can read
+    match /rewards/{rewardId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admins can modify (handled by Cloud Functions)
+    }
+
+    // User rewards collection - Users can only access their own rewards
+    match /userRewards/{userRewardId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Challenge progress collection - Users can only access their own progress
+    match /challengeProgress/{progressId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Activity summaries collection - Users can only access their own summaries
+    match /activitySummaries/{summaryId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && isOwner(resource.data.uid);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
