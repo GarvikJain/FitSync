@@ -9,7 +9,7 @@ const HealthPage = () => {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-wellness-primary mb-2">Health Metrics</h1>
           <p className="text-muted-foreground">
-            Monitor your health data, track fitness metrics, and connect with Google Fit.
+            Monitor your health data and track fitness metrics.
           </p>
         </div>
         
