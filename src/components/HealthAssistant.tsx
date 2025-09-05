@@ -24,8 +24,10 @@ const HealthAssistant = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyC122G3uWGBZwugIhVxLeiUoWaUFe82G8s";
-  const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+  const GROK_API_KEY = import.meta.env.VITE_GROK_API_KEY;
+  // Note: Grok API endpoints are not yet publicly documented
+  // This is a placeholder implementation that will need to be updated when official endpoints are available
+  const GROK_API_URL = "https://api.x.ai/v1/chat/completions"; // Placeholder endpoint
 
   const systemPrompt = `You are a friendly and reliable health information assistant for a wellness website. Your role is to answer common health-related questions in a clear, accurate, and empathetic manner. 
 
@@ -39,6 +41,90 @@ Guidelines:
 - Keep responses conversational but informative
 
 Remember: You are not a doctor and cannot provide medical diagnosis or treatment recommendations.`;
+
+  // Fallback responses for when Grok API is not available
+  const getFallbackResponse = (userInput: string): string => {
+    const input = userInput.toLowerCase();
+    
+    if (input.includes('sleep') || input.includes('insomnia')) {
+      return `Getting good sleep is crucial for your health! Here are some tips:
+
+• Maintain a consistent sleep schedule
+• Create a relaxing bedtime routine
+• Keep your bedroom cool, dark, and quiet
+• Avoid screens 1 hour before bed
+• Limit caffeine after 2 PM
+• Exercise regularly but not too close to bedtime
+
+*Remember: These are general wellness tips. If you're experiencing persistent sleep issues, please consult with a healthcare professional.*`;
+    }
+    
+    if (input.includes('stress') || input.includes('anxiety')) {
+      return `Managing stress is important for your overall well-being. Try these techniques:
+
+• Deep breathing exercises (4-7-8 technique)
+• Regular physical activity
+• Mindfulness meditation
+• Progressive muscle relaxation
+• Spending time in nature
+• Maintaining social connections
+• Getting adequate sleep
+
+*Note: If stress is significantly impacting your daily life, consider speaking with a mental health professional.*`;
+    }
+    
+    if (input.includes('diet') || input.includes('nutrition') || input.includes('food')) {
+      return `A balanced diet is key to good health! Here are some general guidelines:
+
+• Eat a variety of fruits and vegetables
+• Choose whole grains over refined grains
+• Include lean proteins (fish, poultry, beans)
+• Limit processed foods and added sugars
+• Stay hydrated with water
+• Practice portion control
+• Don't skip meals
+
+*Please consult with a registered dietitian for personalized nutrition advice.*`;
+    }
+    
+    if (input.includes('exercise') || input.includes('workout') || input.includes('fitness')) {
+      return `Regular exercise has numerous health benefits! Consider these tips:
+
+• Aim for at least 150 minutes of moderate activity per week
+• Include both cardio and strength training
+• Start slowly if you're new to exercise
+• Find activities you enjoy
+• Listen to your body and rest when needed
+• Stay hydrated during workouts
+• Warm up and cool down properly
+
+*Always consult with a healthcare provider before starting a new exercise program, especially if you have health concerns.*`;
+    }
+    
+    if (input.includes('water') || input.includes('hydrat')) {
+      return `Staying hydrated is essential for your health! Here's what you should know:
+
+• Aim for 8-10 glasses of water daily (varies by individual needs)
+• Drink water throughout the day, not just when thirsty
+• Include water-rich foods like fruits and vegetables
+• Monitor your urine color (pale yellow is ideal)
+• Increase intake during exercise or hot weather
+• Limit sugary drinks and excessive caffeine
+
+*Individual hydration needs vary based on activity level, climate, and health conditions.*`;
+    }
+    
+    // Default response
+    return `Thank you for your health question! I'm here to provide general wellness information and guidance.
+
+While I can offer general health tips and information, please remember that:
+• This is not a substitute for professional medical advice
+• Always consult with healthcare professionals for specific concerns
+• Seek immediate medical attention for urgent health issues
+• Individual health needs vary greatly
+
+Is there a specific aspect of health and wellness you'd like to learn more about?`;
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -54,36 +140,59 @@ Remember: You are not a doctor and cannot provide medical diagnosis or treatment
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      // Check if Grok API key is available
+      if (!GROK_API_KEY) {
+        // Use fallback responses if no API key is provided
+        console.warn("Grok API key not provided, using fallback responses");
+        const assistantResponse = getFallbackResponse(input);
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: assistantResponse,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        return;
+      }
+
+      // Try Grok API first (when available)
+      const response = await fetch(GROK_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${GROK_API_KEY}`,
         },
         body: JSON.stringify({
-          contents: [
+          model: "grok-beta", // Placeholder model name
+          messages: [
             {
-              parts: [
-                {
-                  text: `${systemPrompt}\n\nUser question: ${input}\n\nPlease provide a helpful response with appropriate disclaimers.`,
-                },
-              ],
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: `${input}\n\nPlease provide a helpful response with appropriate disclaimers.`,
             },
           ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 800,
-          },
+          temperature: 0.7,
+          max_tokens: 800,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response from Gemini API");
+        // Fallback to mock responses if Grok API is not available
+        console.warn("Grok API not available, using fallback responses");
+        const assistantResponse = getFallbackResponse(input);
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: assistantResponse,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        return;
       }
 
       const data = await response.json();
-      const assistantResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+      const assistantResponse = data.choices?.[0]?.message?.content || 
         "I apologize, but I'm having trouble processing your request right now. Please try again later.";
 
       const assistantMessage: Message = {
@@ -94,7 +203,7 @@ Remember: You are not a doctor and cannot provide medical diagnosis or treatment
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error("Error calling Gemini API:", error);
+      console.error("Error calling Grok API:", error);
       const errorMessage: Message = {
         role: "assistant",
         content: "I apologize, but I'm experiencing technical difficulties right now. Please try again in a moment, or consider consulting with a healthcare professional for immediate concerns.",
